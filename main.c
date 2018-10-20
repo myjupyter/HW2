@@ -595,13 +595,13 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
       if (issign(*iterator) || isBrace(*iterator)) {
         if (num.size) {
           fromToAnother(&num, &worker);
-          fromToAnother(&worker, &((*RPN)[*sizeRPN])); // except
+          fromToAnother(&worker, &((*RPN)[*sizeRPN])); 
           (*sizeRPN)++;
         }
       }
       // если число - пушим в num
       if (isdigit(*iterator)) {
-        push(&num, *iterator); // except
+        push(&num, *iterator); 
       } else if (issign(*iterator)) {
         // если стек operators не пуст
         // и последний символ в стеке не '('
@@ -611,23 +611,23 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
         // иначе просто записываем *iterator в стек операторов
         if (operators.size != 0 && back(operators) != '(' &&
             (priority(*iterator) <= priority(back(operators)))) {
-          push(&((*RPN)[*sizeRPN]), pop(&operators)); // except
+          push(&((*RPN)[*sizeRPN]), pop(&operators)); 
           (*sizeRPN)++;
-          push(&operators, *iterator); // except
+          push(&operators, *iterator); 
         } else {
-          push(&operators, *iterator); // except
+          push(&operators, *iterator); 
         }
       }
       // если откр. скобка - кладем в оп. стек
       else if (*iterator == '(') {
-        push(&operators, '('); // except
+        push(&operators, '(');
       }
       // если закрывающая скобка - выбрасываем все операторы
       // в стек RPN
       else if (*iterator == ')') {
         char temp = pop(&operators);
         while (temp != '(') {
-          push(&((*RPN)[*sizeRPN]), temp); // exept
+          push(&((*RPN)[*sizeRPN]), temp); 
           (*sizeRPN)++;
           temp = pop(&operators);
           if (operators.size == 0 && temp != '(') {
@@ -656,7 +656,7 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
   }
   // если что-то осталось в operators - кладем в RPN
   while (operators.size) {
-    push(&((*RPN)[*sizeRPN]), pop(&operators)); // except
+    push(&((*RPN)[*sizeRPN]), pop(&operators)); 
     (*sizeRPN)++;
   }
   freeStack(operators);
