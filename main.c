@@ -16,20 +16,25 @@
 #define ERROR_SIGNAL -1
 #define CLONG_SIZE 30
 #define BASE 10
+#define PLUS '+'
+#define MINUS '-'
+#define MULTIPLY '*'
+#define DIVIDE '/'
+#define UMINUS '~'
 
 int priority(char sign) {
   switch (sign) {
-  case '+':
+  case PLUS:
     return 0;
-  case '-':
+  case MINUS:
     return 0;
-  case '*':
+  case MULTIPLY:
     return 1;
-  case '/':
+  case DIVIDE:
     return 1;
   case '(':
     return -1;
-  case '~':
+  case UMINUS:
     return 2;
   default:
     return -9;
@@ -38,15 +43,15 @@ int priority(char sign) {
 
 int issign(char sign) {
   switch (sign) {
-  case '+':
+  case PLUS:
     return 1;
-  case '*':
+  case MULTIPLY:
     return 1;
-  case '/':
+  case DIVIDE:
     return 1;
-  case '-':
+  case MINUS:
     return 1;
-  case '~':
+  case UMINUS:
     return 1;
   default:
     return 0;
@@ -84,7 +89,7 @@ void copyFrom(struct CLong *A, struct CLong *const B) {
 }
 
 // Функция для перевода числа в строковом представлении в CLong
-struct CLong toCLong(char *const number, size_t size) {
+struct CLong toCLong(char const * const number, size_t size) {
   struct CLong result;
   initCLong(&result, size);
   for (int i = size - 1; i >= 0; i--) {
@@ -458,13 +463,13 @@ void printCLong(struct CLong object) {
 struct CLong workAtTheStack(struct CLong *const A, struct CLong *const B,
                             char operator) {
   switch (operator) {
-  case '+':
+  case PLUS:
     return SUM(A, B);
-  case '-':
+  case MINUS:
     return SUB(A, B);
-  case '*':
+  case MULTIPLY:
     return MUL(A, B);
-  case '/': {
+  case DIVIDE: {
     struct CLong Acpy = moduleCopy(A);
     struct CLong Bcpy = moduleCopy(B);
     if ((isNegative(A) + isNegative(B)) % 2) {
@@ -524,12 +529,33 @@ int initCStack(struct CStack *object, size_t capacity) {
   return 0;
 }
 
+// копирование стека 
+int copyCStack(struct CStack * const op1, struct CStack * op2) {
+	if(op1 != NULL && op2 != NULL) {
+		if(op1 != op2) {
+			if(op1->size > op2->capacity) {
+				op2->capacity = op1->size;
+				if(reallocation(&(op2->stack), &(op2->capacity))) {
+					return ERROR_SIGNAL;
+				}
+			}
+			memcpy(op2->stack, op1->stack, op1->size * sizeof(char));
+			op2->size = op1->size;
+			return 0;
+		}	
+		return 0;
+	} 
+	else  
+		return ERROR_SIGNAL;
+}
+
 int push(struct CStack *object, char symbol) {
   if (object->stack) {
     if (object->capacity > object->size) {
       object->stack[(object->size)++] = symbol;
       return 0;
-    } else if (!reallocation(&(object->stack), &(object->capacity))) {
+    } 
+		else if (!reallocation(&(object->stack), &(object->capacity))) {
       object->stack[(object->size)++] = symbol;
       return 0;
     }
@@ -571,12 +597,6 @@ int isBrace(char symbol) {
 
 int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
               size_t *sizeRPN) {
-  // worker - служебный стек
-  // если бы читали сразу в RPN, то числа были бы перевернуты
-  // поэтому решил для  CLong более привычный формат сделать
-  struct CStack worker;
-  if (initCStack(&worker, CLONG_SIZE))
-    return ERROR_SIGNAL;
   // num стек для записи цифер числа
   // запишет число 123 как 321
   // потом оттуда с помощью воркера пишем в RPN как 123
@@ -591,18 +611,18 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
   for (iterator = buffer; *iterator != '\0'; iterator++) {
     // пропускаем пробелы
     if (!isspace(*iterator)) {
-      // если встречаем оператор или скобку, то пишем num -> worker -> RPN
+      // если встречаем оператор или скобку, то пишем num -> RPN
       if (issign(*iterator) || isBrace(*iterator)) {
         if (num.size) {
-          fromToAnother(&num, &worker);
-          fromToAnother(&worker, &((*RPN)[*sizeRPN])); 
-          (*sizeRPN)++;
+					copyCStack(&num,*RPN + (*sizeRPN)++);
+					num.size = 0;
         }
       }
       // если число - пушим в num
       if (isdigit(*iterator)) {
-        push(&num, *iterator); 
-      } else if (issign(*iterator)) {
+        push(&num, *iterator);	
+      } 
+			else if (issign(*iterator)) {
         // если стек operators не пуст
         // и последний символ в стеке не '('
         // и приоритет последнего символа больше или равен *iterator
@@ -611,10 +631,10 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
         // иначе просто записываем *iterator в стек операторов
         if (operators.size != 0 && back(operators) != '(' &&
             (priority(*iterator) <= priority(back(operators)))) {
-          push(&((*RPN)[*sizeRPN]), pop(&operators)); 
-          (*sizeRPN)++;
+          push(*RPN + (*sizeRPN)++, pop(&operators)); 
           push(&operators, *iterator); 
-        } else {
+        } 
+				else {
           push(&operators, *iterator); 
         }
       }
@@ -627,13 +647,11 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
       else if (*iterator == ')') {
         char temp = pop(&operators);
         while (temp != '(') {
-          push(&((*RPN)[*sizeRPN]), temp); 
-          (*sizeRPN)++;
+          push(*RPN + (*sizeRPN)++, temp); 
           temp = pop(&operators);
           if (operators.size == 0 && temp != '(') {
             freeStack(operators);
             freeStack(num);
-            freeStack(worker);
             return errorf(NULL);
           }
         }
@@ -643,33 +661,29 @@ int createRPN(char *const buffer, struct CStack **RPN, size_t *capacityRPN,
       else {
         freeStack(operators);
         freeStack(num);
-        freeStack(worker);
         return errorf(NULL);
       }
     }
   }
   // если что-то в num осталось - кладем в RPN
   if (num.size) {
-    fromToAnother(&num, &worker);
-    fromToAnother(&worker, &((*RPN)[*sizeRPN]));
-    (*sizeRPN)++;
+		copyCStack(&num, *RPN + (*sizeRPN)++);
+		num.size = 0;
   }
   // если что-то осталось в operators - кладем в RPN
   while (operators.size) {
-    push(&((*RPN)[*sizeRPN]), pop(&operators)); 
-    (*sizeRPN)++;
+    push(*RPN + (*sizeRPN)++, pop(&operators)); 
   }
   freeStack(operators);
   freeStack(num);
-  freeStack(worker);
   return 0;
 }
 
 // печать содержимого стека
-void printCStack(struct CStack object) {
-  if (object.stack) {
-    for (size_t i = 0; i < object.size; i++)
-      printf("%c", object.stack[i]);
+void printCStack(struct CStack * const object) {
+  if (object->stack) {
+    for (size_t i = 0; i < object->size; i++)
+      printf("%c", object->stack[i]);
     printf(" ");
   }
 }
@@ -686,21 +700,23 @@ int readFromStdInput(char **pointer) {
   if (!fgets(chunk, CHUNK_SIZE, stdin)) {
     return errorf(*pointer);
   }
-  for (; 1; i++) {
+  for (;; ++i) {
     if ((BUFFER_SIZE - CHUNK_SIZE * i) != 1) {
       strcat((*pointer), chunk);
       chunk[0] = '\0';
-    } else if (reallocation(pointer, &BUFFER_SIZE)) {
+    }
+	 	else if (reallocation(pointer, &BUFFER_SIZE)) {
       return errorf(NULL);
-    } else {
+    }
+	 	else {
       strcat((*pointer), chunk);
       chunk[0] = '\0';
     }
     if (feof(stdin) || fgets(chunk, CHUNK_SIZE, stdin))
       break;
   }
-  i *= CHUNK_SIZE;
-  if (reallocation(pointer, &i))
+  size_t stringBuffer = i * CHUNK_SIZE;
+  if (reallocation(pointer, &stringBuffer))
     return errorf(NULL);
   return 0;
 }
@@ -720,25 +736,23 @@ int preAnalysis(char **buffer) {
     // меняем знак - на ~(унарный минус)
     if (*iterator == '-' && (iterator == (*buffer) || issign(*(iterator - 1)) ||
                              *(iterator - 1) == '(')) {
-      *iterator = '~';
+      *iterator = UMINUS;
     }
   }
   return 2 * capacityRPN + 4;
 }
 
-int calculate(struct CStack *const RPN, size_t sizeOfRPN) {
-  struct CLong *numberStack =
-      (struct CLong *)calloc(sizeOfRPN / 2 + 2, sizeof(struct CLong));
+int calculate(struct CStack *const RPN, size_t sizeOfRPN, struct CLong * result) {
+  struct CLong *numberStack = (struct CLong *)calloc(sizeOfRPN / 2 + 2, sizeof(struct CLong));
   size_t sizeOfNumberStack = 0;
   if (!numberStack) {
     return errorf(NULL);
   }
-  struct CLong result;
-  initCLong(&result, 0);
   for (size_t i = 0; i < sizeOfRPN; i++) {
     if (isdigit(RPN[i].stack[0])) {
       numberStack[sizeOfNumberStack++] = toCLong(RPN[i].stack, RPN[i].size);
-    } else if (issign(RPN[i].stack[0])) {
+    }
+	 	else if (issign(RPN[i].stack[0])) {
       if (RPN[i].stack[0] != '~') {
         if (sizeOfNumberStack < 2) {
           free(numberStack);
@@ -748,10 +762,12 @@ int calculate(struct CStack *const RPN, size_t sizeOfRPN) {
             &numberStack[sizeOfNumberStack - 2],
             &numberStack[sizeOfNumberStack - 1], RPN[i].stack[0]);
         sizeOfNumberStack--;
-      } else {
+      }
+		 	else {
         unaryMinus(&(numberStack[sizeOfNumberStack - 1]));
       }
-    } else {
+    }
+	 	else {
       free(numberStack);
       return errorf(NULL);
     }
@@ -760,7 +776,7 @@ int calculate(struct CStack *const RPN, size_t sizeOfRPN) {
     free(numberStack);
     return errorf(NULL);
   }
-  printCLong(numberStack[--sizeOfNumberStack]);
+  *result = numberStack[--sizeOfNumberStack];
   free(numberStack);
   return 0;
 }
@@ -769,34 +785,36 @@ int main() {
   char *buffer = NULL;
   if (readFromStdInput(&buffer))
     return 0;
-  size_t capacityRPN = preAnalysis(&buffer);
-  size_t sizeRPN = 0;
-  struct CStack *RPN =
-      (struct CStack *)calloc(capacityRPN, sizeof(struct CStack));
-  if (!RPN) {
+  size_t capacityRevPolhNot = preAnalysis(&buffer);
+  size_t sizeRevPolhNot = 0;
+  struct CStack *RevPolhNot = (struct CStack *)calloc(capacityRevPolhNot, sizeof(struct CStack));
+  if (!RevPolhNot) {
     errorf(NULL);
     free(buffer);
     return 0;
   }
-  for (size_t i = 0; i < capacityRPN; i++) {
-    if (initCStack(RPN + i, 2)) {
+  for (size_t i = 0; i < capacityRevPolhNot; i++) {
+    if (initCStack(RevPolhNot + i, 2)) {
       free(buffer);
       return 0;
     }
   }
-  if (createRPN(buffer, &RPN, &capacityRPN, &sizeRPN)) {
+  if (createRPN(buffer, &RevPolhNot, &capacityRevPolhNot, &sizeRevPolhNot)) {
     free(buffer);
-    for (size_t i = 0; i < capacityRPN; i++) {
-      freeStack(RPN[i]);
+    for (size_t i = 0; i < capacityRevPolhNot; i++) {
+      freeStack(RevPolhNot[i]);
     }
-    free(RPN);
+    free(RevPolhNot);
     return 0;
   }
-  calculate(RPN, sizeRPN);
-  free(buffer);
-  for (size_t i = 0; i < capacityRPN; i++) {
-    freeStack(RPN[i]);
+	struct CLong result;
+  initCLong(&result, 0);
+  calculate(RevPolhNot, sizeRevPolhNot, &result);
+  printCLong(result);
+	free(buffer);
+  for (size_t i = 0; i < capacityRevPolhNot; i++) {
+    freeStack(RevPolhNot[i]);
   }
-  free(RPN);
+  free(RevPolhNot);
   return 0;
 }
